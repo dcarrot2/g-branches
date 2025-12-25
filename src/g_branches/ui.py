@@ -116,7 +116,6 @@ class BranchUI:
 
             syntax = Syntax(diff, "diff", theme="monokai", line_numbers=False)
             panels.append(Panel(syntax, title="diff", border_style="red"))
-            print('What is going on?')
             self.console.print(Columns(panels, equal=True, expand=True))
         else:
             self.console.print("[dim]No changes in this commit[/dim]")
