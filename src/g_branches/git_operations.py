@@ -142,18 +142,26 @@ class GitBranchManager:
             GitOperationError: If unable to get diff
         """
         try:
-            # Handle remote branches
+            # Handle remote branches - get branch reference for iter_commits
             if "/" in branch_name:
-                commit = self.repo.commit(branch_name)
+                # For remote branches, use the branch name directly
+                branch_ref = branch_name
             else:
                 branch = self.repo.branches[branch_name]
+                branch_ref = branch
                 commit = branch.commit
 
         
             diffs_from_commits = []
 
-            for commit in self.repo.iter_commits(branch):
-                diff = commit.diff(commit, create_patch=True)
+            for commit in self.repo.iter_commits(branch_ref):
+                # Get diff against parent commit (or empty tree if no parent)
+                if commit.parents:
+                    # Compare commit to its parent to show what changed
+                    diff = commit.diff(commit.parents[0], create_patch=True)
+                else:
+                    # First commit - compare to empty tree
+                    diff = commit.diff(None, create_patch=True)
 
                 # Format diff output
                 diff_text = ""
