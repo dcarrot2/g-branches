@@ -1,10 +1,11 @@
 """UI components using Rich and InquirerPy."""
 
 from InquirerPy import inquirer
+from rich.columns import Columns
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
-from rich.table import Table
+from rich.table import Column, Table
 
 from .models import BranchInfo
 
@@ -15,6 +16,8 @@ class BranchUI:
     def __init__(self) -> None:
         """Initialize the BranchUI with a Rich console."""
         self.console = Console()
+        # Maintain reference of currently listed panels
+        self.panels = []
 
     def display_branches_table(self, branches: list[BranchInfo]) -> None:
         """
@@ -95,8 +98,10 @@ class BranchUI:
 [bold cyan]Message:[/bold cyan] {branch.commit_message}
 [bold cyan]Type:[/bold cyan] {"Remote" if branch.is_remote else "Local"}
 """
+        panels = []
         panel = Panel(info_text, title="Branch Details", border_style="blue")
-        self.console.print(panel)
+        panels.append(panel)
+        self.console.print(panels)
         self.console.print()
 
         # Display diff with syntax highlighting
@@ -110,7 +115,9 @@ class BranchUI:
                 diff += f"\n\n... (truncated, {len(diff_lines) - max_lines} more lines)"
 
             syntax = Syntax(diff, "diff", theme="monokai", line_numbers=False)
-            self.console.print(syntax)
+            panels.append(Panel(syntax, title="diff", border_style="red"))
+            print('What is going on?')
+            self.console.print(Columns(panels, equal=True, expand=True))
         else:
             self.console.print("[dim]No changes in this commit[/dim]")
 
