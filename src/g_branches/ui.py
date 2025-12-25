@@ -1,10 +1,13 @@
 """UI components using Rich and InquirerPy."""
 
 from InquirerPy import inquirer
-from rich.console import Console
+from rich.columns import Columns
+from rich.console import Console, Group
+from rich.markup import escape
 from rich.panel import Panel
 from rich.syntax import Syntax
-from rich.table import Table
+from rich.table import Column, Table
+from rich.text import Text
 
 from .models import BranchInfo
 
@@ -14,7 +17,14 @@ class BranchUI:
 
     def __init__(self) -> None:
         """Initialize the BranchUI with a Rich console."""
-        self.console = Console()
+        # Force terminal and enable color support
+        self.console = Console(
+            force_terminal=True,
+            color_system="auto",  # Auto-detect best color support
+            legacy_windows=False,
+        )
+        # Maintain reference of currently listed panels
+        self.panels = []
 
     def display_branches_table(self, branches: list[BranchInfo]) -> None:
         """
@@ -80,41 +90,97 @@ class BranchUI:
 
         return result  # type: ignore[no-any-return]
 
-    def display_branch_details(self, branch: BranchInfo, diff: str) -> None:
+    def display_branch_details(self, branch: BranchInfo, diffs: list[str]) -> None:
         """
-        Show detailed branch information with syntax-highlighted diff.
+        Show detailed branch information with syntax-highlighted diffs side by side.
 
         Args:
             branch: BranchInfo object with branch details
-            diff: Diff output to display
+            diffs: List of diff outputs to display (one per commit)
         """
-        # Display branch information
+        # Prepare branch information panel
         info_text = f"""[bold cyan]Branch:[/bold cyan] {branch.name}
 [bold cyan]Commit:[/bold cyan] {branch.commit_hash}
 [bold cyan]Date:[/bold cyan] {branch.formatted_date}
 [bold cyan]Message:[/bold cyan] {branch.commit_message}
 [bold cyan]Type:[/bold cyan] {"Remote" if branch.is_remote else "Local"}
 """
-        panel = Panel(info_text, title="Branch Details", border_style="blue")
-        self.console.print(panel)
-        self.console.print()
+        branch_panel = Panel(info_text, title="Branch Details", border_style="blue")
 
-        # Display diff with syntax highlighting
-        if diff and diff != "No changes in this commit":
-            self.console.print("[bold yellow]Last Commit Diff:[/bold yellow]")
-            # Limit diff length for readability
-            max_lines = 100
-            diff_lines = diff.split("\n")
-            if len(diff_lines) > max_lines:
-                diff = "\n".join(diff_lines[:max_lines])
-                diff += f"\n\n... (truncated, {len(diff_lines) - max_lines} more lines)"
+        # Prepare diff content
+        diff_content_parts = []
+        if diffs:
+            total_diffs = len(diffs)
+            for idx, diff in enumerate(diffs, start=1):
+                if diff and diff.strip() and diff != "No changes in this commit":
+                    # Create panel title
+                    if total_diffs > 1:
+                        panel_title = f"Commit Diff {idx} of {total_diffs}"
+                    else:
+                        panel_title = "Commit Diff"
 
-            syntax = Syntax(diff, "diff", theme="monokai", line_numbers=False)
-            self.console.print(syntax)
+                    # Manually colorize diff for reliable highlighting
+                    colored_diff = Text()
+                    for line in diff.split("\n"):
+                        if line.startswith("+++"):
+                            colored_diff.append(line + "\n", style="cyan")
+                        elif line.startswith("---"):
+                            colored_diff.append(line + "\n", style="magenta")
+                        elif line.startswith("@@"):
+                            colored_diff.append(line + "\n", style="blue")
+                        elif line.startswith("+"):
+                            colored_diff.append(line + "\n", style="green")
+                        elif line.startswith("-"):
+                            colored_diff.append(line + "\n", style="red")
+                        elif line.startswith("diff --git"):
+                            colored_diff.append(line + "\n", style="yellow")
+                        elif line.startswith("index "):
+                            colored_diff.append(line + "\n", style="dim")
+                        else:
+                            colored_diff.append(line + "\n")
+                    
+                    # Remove trailing newline
+                    if colored_diff:
+                        colored_diff.rstrip()
+                    
+                    diff_panel = Panel(
+                        colored_diff,
+                        title=panel_title,
+                        border_style="yellow",
+                        padding=(0, 1),
+                    )
+                    diff_content_parts.append(diff_panel)
+                elif idx == 1:
+                    # Only show "No changes" message for the first diff if it's empty
+                    no_changes_panel = Panel(
+                        "[dim]No changes in this commit[/dim]",
+                        title="Commit Diff",
+                        border_style="dim",
+                    )
+                    diff_content_parts.append(no_changes_panel)
         else:
-            self.console.print("[dim]No changes in this commit[/dim]")
+            no_changes_panel = Panel(
+                "[dim]No changes in this commit[/dim]",
+                title="Commit Diff",
+                border_style="dim",
+            )
+            diff_content_parts.append(no_changes_panel)
 
-        self.console.print()
+        # Combine branch info and diffs in columns
+        # Use pager for scrollable content with colors preserved
+        # Create a renderable group for the diff content
+        diff_group = Group(*diff_content_parts) if diff_content_parts else Group()
+        
+        # Display side by side using Columns
+        columns = Columns(
+            [branch_panel, diff_group],
+            equal=False,
+            expand=True,
+        )
+        
+        # Use pager with styles enabled to preserve colors
+        with self.console.pager(styles=True):
+            self.console.print(columns)
 
     def show_checkout_command(self, branch_name: str) -> None:
         """
