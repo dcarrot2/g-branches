@@ -67,12 +67,12 @@ def main(
 
         # Get and display branch details
         try:
-            diff = git_manager.get_branch_diff(selected_branch.name)
+            diffs = git_manager.get_branch_diff(selected_branch.name)
         except GitOperationError as e:
             ui.display_error(f"Could not get diff: {e}")
-            diff = "Unable to retrieve diff"
+            diffs = []
 
-        ui.display_branch_details(selected_branch, diff)
+        ui.display_branch_details(selected_branch, diffs)
 
         # Don't allow switching to current branch
         if selected_branch.is_current:

@@ -128,7 +128,7 @@ class GitBranchManager:
         except Exception as e:
             raise GitOperationError(f"Failed to fetch branches: {e}") from e
 
-    def get_branch_diff(self, branch_name: str) -> str:
+    def get_branch_diff(self, branch_name: str) -> list[str]:
         """
         Get the diff for the last commit on a branch.
 
@@ -149,24 +149,25 @@ class GitBranchManager:
                 branch = self.repo.branches[branch_name]
                 commit = branch.commit
 
-            # Get diff for the last commit
-            if commit.parents:
-                diff = commit.diff(commit.parents[0], create_patch=True)
-            else:
-                # First commit has no parent
-                diff = commit.diff(None, create_patch=True)
+        
+            diffs_from_commits = []
 
-            # Format diff output
-            diff_text = ""
-            for diff_item in diff:
-                if diff_item.diff:
-                    # Handle diff as str or bytes
-                    if isinstance(diff_item.diff, bytes):
-                        diff_text += diff_item.diff.decode("utf-8", errors="replace")
-                    else:
-                        diff_text += diff_item.diff
+            for commit in self.repo.iter_commits(branch):
+                diff = commit.diff(commit, create_patch=True)
 
-            return diff_text if diff_text else "No changes in this commit"
+                # Format diff output
+                diff_text = ""
+                for diff_item in diff:
+                    if diff_item.diff:
+                        # Handle diff as str or bytes
+                        if isinstance(diff_item.diff, bytes):
+                            diff_text += diff_item.diff.decode("utf-8", errors="replace")
+                        else:
+                            diff_text += diff_item.diff
+
+                diffs_from_commits.append(diff_text)
+        
+            return diffs_from_commits
 
         except Exception as e:
             raise GitOperationError(f"Failed to get diff for {branch_name}: {e}") from e

@@ -83,13 +83,13 @@ class BranchUI:
 
         return result  # type: ignore[no-any-return]
 
-    def display_branch_details(self, branch: BranchInfo, diff: str) -> None:
+    def display_branch_details(self, branch: BranchInfo, diffs: list[str]) -> None:
         """
-        Show detailed branch information with syntax-highlighted diff.
+        Show detailed branch information with syntax-highlighted diffs.
 
         Args:
             branch: BranchInfo object with branch details
-            diff: Diff output to display
+            diffs: List of diff outputs to display (one per commit)
         """
         # Display branch information
         info_text = f"""[bold cyan]Branch:[/bold cyan] {branch.name}
@@ -104,19 +104,30 @@ class BranchUI:
         self.console.print(panels)
         self.console.print()
 
-        # Display diff with syntax highlighting
-        if diff and diff != "No changes in this commit":
-            self.console.print("[bold yellow]Last Commit Diff:[/bold yellow]")
-            # Limit diff length for readability
-            max_lines = 100
-            diff_lines = diff.split("\n")
-            if len(diff_lines) > max_lines:
-                diff = "\n".join(diff_lines[:max_lines])
-                diff += f"\n\n... (truncated, {len(diff_lines) - max_lines} more lines)"
+        # Display all diffs with syntax highlighting
+        if diffs:
+            total_diffs = len(diffs)
+            # Use pager for scrollable diffs if content is long
+            with self.console.pager():
+                for idx, diff in enumerate(diffs, start=1):
+                    if diff and diff.strip() and diff != "No changes in this commit":
+                        # Show header for each diff if there are multiple
+                        if total_diffs > 1:
+                            self.console.print(
+                                f"[bold yellow]Commit Diff {idx} of {total_diffs}:[/bold yellow]"
+                            )
+                        else:
+                            self.console.print("[bold yellow]Commit Diff:[/bold yellow]")
 
-            syntax = Syntax(diff, "diff", theme="monokai", line_numbers=False)
-            panels.append(Panel(syntax, title="diff", border_style="red"))
-            self.console.print(Columns(panels, equal=True, expand=True))
+                        syntax = Syntax(diff, "diff", theme="monokai", line_numbers=True)
+                        self.console.print(syntax)
+
+                        # Add separator between multiple diffs
+                        if idx < total_diffs:
+                            self.console.print()
+                    elif idx == 1:
+                        # Only show "No changes" message for the first diff if it's empty
+                        self.console.print("[dim]No changes in this commit[/dim]")
         else:
             self.console.print("[dim]No changes in this commit[/dim]")
 
