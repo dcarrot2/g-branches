@@ -40,6 +40,7 @@ class GitBranchManager:
             GitOperationError: If unable to determine current branch
         """
         try:
+            # HEAD means that HEAD points directly to a commit instead of a branch.
             if self.repo.head.is_detached:
                 return "HEAD (detached)"
             return str(self.repo.active_branch.name)
